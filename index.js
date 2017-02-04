@@ -123,6 +123,7 @@ var isIdentChar = function (code) {
 var parseXbasic = function (source) {
     var i, line;
     var commands = [];
+    var errors = [];
     var dotVal = 46;
     if (!binaryOpIndex) {
         // Build binary weight index
@@ -365,11 +366,15 @@ var parseXbasic = function (source) {
                 handled = true;
                 expr = oe.expr;
                 skipWhitespace(ctx);
-                if (oe.expr.identifier) {
+                if (oe.expr.identifier) {                    
                     if (ctx.line.charCodeAt(0) === 40) {
+                        var saveLine = ctx.line;
                         var inner = parseExpr(ctx, "ident");
                         if (inner.handled) {
                             expr = { function: oe.expr.identifier, parameters: inner.content };
+                        } else {
+                            ctx.startColumn -= (saveLine.length - ctx.line.length); 
+                            ctx.line = saveLine;
                         }
                     } else if (ctx.line.charCodeAt(0) === 91) {
                         var inner = parseExpr(ctx, "ident");
@@ -678,7 +683,11 @@ var parseXbasic = function (source) {
     var parseXbasicCommands = function (line, lineNumber, startColumn) {
         var i;
         for (i = 0; i < xbasicCommands.length; ++i) {
-            if (parseXbasicCommand({ command: xbasicCommands[i], obj: { type: null }, startAt: 0, line: line, lineNumber: lineNumber, startColumn: startColumn })) {
+            var context = { command: xbasicCommands[i], obj: { type: null }, startAt: 0, line: line, lineNumber: lineNumber, startColumn: startColumn }; 
+            if (parseXbasicCommand(context)) {
+                if( context.line.length > 0 ) {
+                    errors.push({ error : "Extra characters after expression '"+context.line+"'" , line : context.lineNumber , column :  context.startColumn  } );
+                }
                 return true;
             }
         }
@@ -691,14 +700,18 @@ var parseXbasic = function (source) {
         if (line.substr(0, 1) === "'") {
             commands.push({ "type": "comment", "text": line.substr(1), "line": lineNumber })
         } else if (line.length > 0) {
-            parseXbasicCommands(line, lineNumber, startColumn);
+            return parseXbasicCommands(line, lineNumber, startColumn);
         }
+        return true;
     };
     source = source.split("\n");
+    var allGood = true;
     for (i = 0; i < source.length; ++i) {
-        parseXbasicLine(source[i], i, 0);
+        if( !parseXbasicLine(source[i], i, 0) ) {
+            error.push( { error : "On line to " });
+        }
     }
-    return { "error": ("Lines :" + source.length), "commands": commands };
+    return { "error": errors , "commands": commands };
 }
 
 exports.parse = parseXbasic; 
