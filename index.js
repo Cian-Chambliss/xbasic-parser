@@ -387,6 +387,7 @@ var parseXbasic = function (source) {
                     expr = { type: uo.op, operator: [expr] };
                 }
                 if (!checkTerminate(ctx)) {
+                    var saveLine = ctx.line;
                     var binOp = binaryOperator(ctx);
                     if (binOp) {
                         if (kind !== "var" || binOp.op === '.') {
@@ -400,7 +401,13 @@ var parseXbasic = function (source) {
                                         expr = { type: binOp.op, operator: [expr.operator].concat(rightValue.content.operator) };
                                     }
                                 }
+                            } else {
+                                ctx.startColumn -= (saveLine.length - ctx.line.length); 
+                                ctx.line = saveLine;
                             }
+                        } else {
+                            ctx.startColumn -= (saveLine.length - ctx.line.length); 
+                            ctx.line = saveLine;
                         }
                     }
                 }
