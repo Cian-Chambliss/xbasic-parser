@@ -1,0 +1,22 @@
+{
+  "name": "xbasic-parser",
+  "version": "0.0.1",
+  "description": "Xbasic Parser",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Cian-Chambliss/xbasic-parser.git"
+  },
+  "keywords": [
+    "xbasic"
+  ],
+  "author": "cian chambliss",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Cian-Chambliss/xbasic-parser/issues"
+  },
+  "homepage": "https://github.com/Cian-Chambliss/xbasic-parser#readme"
+}
