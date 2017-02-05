@@ -52,8 +52,8 @@ var xbasicCommands = [
     { "name": "continue", "template": ["continue"] },
     { "name": "declare", "template": ["declare", "<sco>", "<sco>", "<sco>", "@"] },
     { "name": "declarestruct", "template": ["declarestruct", "<sco>", "<sco>"] },
-    { "name": "delete", "template": ["delete", ["$attr"], ["$xor", ["shared", "global", "system", "private", "constant"]], ["$arg", "arg"]] },
-    { "name": "dim", "template": ["dim", ["$attr"], ["$xor", ["shared", "global", "system", "private", "protected"]], ["$arg", "arg"]] },
+    { "name": "delete", "template": ["delete", ["$attr"], ["$xor", ["shared", "global", "system", "private", "constant"]], ["$exp", "variable"]] },
+    { "name": "dim", "template": ["dim", ["$attr"], ["$xor", ["shared", "global", "system", "private", "protected"]], ["$arg", "variable"]] },
     { "name": "end_class", "template": ["end", "class"] },
     { "name": "end_function", "template": ["end", "function"] },
     { "name": "end_if", "template": ["end", "if"] },
@@ -306,14 +306,17 @@ var parseXbasic = function (source) {
     var parseExpr = function (ctx, kind) {
         var handled = false;
         var expr = null;
+        var nextExpr = null;
         var parseBinaryOperators = function (expr) {            
             var saveLine = ctx.line;
             var binOp = binaryOperator(ctx);
+            var binaryExpr = null;
             if (binOp) {
                 if (kind !== "var" || binOp.op === '.') {
                     skipWhitespace(ctx);
                     var rightValue = parseExpr(ctx);
                     if (rightValue.handled) {
+                        skipWhitespace(ctx);
                         expr = { type: binOp.op, operator: [expr, rightValue.content] };
                         // Flatten same operators
                         if (binOp.op === '.') {
@@ -321,6 +324,7 @@ var parseXbasic = function (source) {
                                 expr = { type: binOp.op, operator: [expr.operator].concat(rightValue.content.operator) };
                             }
                         }
+                        binaryExpr = expr;
                     } else {
                         ctx.startColumn -= (saveLine.length - ctx.line.length);
                         ctx.line = saveLine;
@@ -330,7 +334,7 @@ var parseXbasic = function (source) {
                     ctx.line = saveLine;
                 }
             }
-            return expr;
+            return binaryExpr;
         };
         if (ctx.line.charCodeAt(0) === 40) {
             ctx.line = ctx.line.substr(1);
@@ -364,7 +368,13 @@ var parseXbasic = function (source) {
                     } else {
                         expr = { type: "()", expr: inner.content };
                     }
-                    expr = parseBinaryOperators(expr);
+                    var nextExpr = parseBinaryOperators(expr);
+                    while( nextExpr ) {
+                        expr = nextExpr;
+                        if (checkTerminate(ctx)) 
+                            break;
+                        nextExpr = parseBinaryOperators(expr);
+                    }
                 }
             } else if (kind === "ident" && ctx.line.charCodeAt(0) === 41) {
                 ctx.line = ctx.line.substr(1);
@@ -447,7 +457,13 @@ var parseXbasic = function (source) {
                     expr = { type: uo.op, operator: [expr] };
                 }
                 if (!checkTerminate(ctx)) {
-                    expr = parseBinaryOperators(expr);
+                    var nextExpr = parseBinaryOperators(expr);
+                    while( nextExpr ) {
+                        expr = nextExpr;
+                        if (checkTerminate(ctx)) 
+                            break;
+                        nextExpr = parseBinaryOperators(expr);
+                    }
                 }
             }
         }
