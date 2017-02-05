@@ -74,7 +74,7 @@ var xbasicCommands = [
     { "name": "dynamic_include", "template": ["dynamic", "include", ["$exp", "include"]] },
     { "name": "goto", "template": ["goto", "<sym>"] },
     { "name": "let", "template": ["let", ["$var", "variable"], "=", ["$exp", "expr"]] },
-    { "name": "next", "template": ["next",["$var","identifier"]] },
+    { "name": "next", "template": ["next", ["$var", "identifier"]] },
     { "name": "next", "template": ["next"] },
     { "name": "on_error_goto", "template": ["on", "error", "goto", "<sym>"] },
     { "name": "on_error_resume", "template": ["on", "error", "resume", "<sym>"] },
@@ -158,8 +158,8 @@ var parseXbasic = function (source) {
     };
     //--------- Return logical length
     var boolLength = function (line) {
-        var testBool = line.substr(0,3).toLowerCase();
-        if( testBool === ".t." || testBool === ".f." ) {
+        var testBool = line.substr(0, 3).toLowerCase();
+        if (testBool === ".t." || testBool === ".f.") {
             return 3;
         }
         return 0;
@@ -181,10 +181,10 @@ var parseXbasic = function (source) {
             if (len < line.length) {
                 return len + 1;
             }
-        } else if (line.substring(0,2) === "<<" ) {
+        } else if (line.substring(0, 2) === "<<") {
             var tag = line.substring(2).split("\n")[0].trim();
-            var tagEnd = line.substring(2+tag.length).indexOf(tag);
-            tagEnd += 2+tag.length*2;
+            var tagEnd = line.substring(2 + tag.length).indexOf(tag);
+            tagEnd += 2 + tag.length * 2;
             return tagEnd;
         }
         return 0;
@@ -194,12 +194,12 @@ var parseXbasic = function (source) {
         var code = line.charCodeAt(0);
         var len = 0;
         if (code === 42) {
-            code =  line.charCodeAt(1);
+            code = line.charCodeAt(1);
             if ((code > 64 && code < 91) || (code > 96 && code < 123) || code === 95) {
                 ++len;
             }
         } else if (code === 46) {
-            code =  line.charCodeAt(1);
+            code = line.charCodeAt(1);
             if ((code > 64 && code < 91) || (code > 96 && code < 123) || code === 95) {
                 ++len;
             }
@@ -268,7 +268,7 @@ var parseXbasic = function (source) {
             ctx.line = ctx.line.substr(length);
             ctx.startColumn += length;
             return { expr: { bool: txt } };
-        }        
+        }
         length = identifierLength(ctx.line);
         if (length > 0) {
             var txt = ctx.line.substr(0, length);
@@ -306,6 +306,32 @@ var parseXbasic = function (source) {
     var parseExpr = function (ctx, kind) {
         var handled = false;
         var expr = null;
+        var parseBinaryOperators = function (expr) {            
+            var saveLine = ctx.line;
+            var binOp = binaryOperator(ctx);
+            if (binOp) {
+                if (kind !== "var" || binOp.op === '.') {
+                    skipWhitespace(ctx);
+                    var rightValue = parseExpr(ctx);
+                    if (rightValue.handled) {
+                        expr = { type: binOp.op, operator: [expr, rightValue.content] };
+                        // Flatten same operators
+                        if (binOp.op === '.') {
+                            if (rightValue.content.type === '.') {
+                                expr = { type: binOp.op, operator: [expr.operator].concat(rightValue.content.operator) };
+                            }
+                        }
+                    } else {
+                        ctx.startColumn -= (saveLine.length - ctx.line.length);
+                        ctx.line = saveLine;
+                    }
+                } else {
+                    ctx.startColumn -= (saveLine.length - ctx.line.length);
+                    ctx.line = saveLine;
+                }
+            }
+            return expr;
+        };
         if (ctx.line.charCodeAt(0) === 40) {
             ctx.line = ctx.line.substr(1);
             ctx.startColumn += 1;
@@ -338,6 +364,7 @@ var parseXbasic = function (source) {
                     } else {
                         expr = { type: "()", expr: inner.content };
                     }
+                    expr = parseBinaryOperators(expr);
                 }
             } else if (kind === "ident" && ctx.line.charCodeAt(0) === 41) {
                 ctx.line = ctx.line.substr(1);
@@ -399,14 +426,14 @@ var parseXbasic = function (source) {
                 handled = true;
                 expr = oe.expr;
                 skipWhitespace(ctx);
-                if (oe.expr.identifier) {                    
+                if (oe.expr.identifier) {
                     if (ctx.line.charCodeAt(0) === 40) {
                         var saveLine = ctx.line;
                         var inner = parseExpr(ctx, "ident");
                         if (inner.handled) {
                             expr = { function: oe.expr.identifier, parameters: inner.content };
                         } else {
-                            ctx.startColumn -= (saveLine.length - ctx.line.length); 
+                            ctx.startColumn -= (saveLine.length - ctx.line.length);
                             ctx.line = saveLine;
                         }
                     } else if (ctx.line.charCodeAt(0) === 91) {
@@ -420,29 +447,7 @@ var parseXbasic = function (source) {
                     expr = { type: uo.op, operator: [expr] };
                 }
                 if (!checkTerminate(ctx)) {
-                    var saveLine = ctx.line;
-                    var binOp = binaryOperator(ctx);
-                    if (binOp) {
-                        if (kind !== "var" || binOp.op === '.') {
-                            skipWhitespace(ctx);
-                            var rightValue = parseExpr(ctx);
-                            if (rightValue.handled) {
-                                expr = { type: binOp.op, operator: [expr, rightValue.content] };
-                                // Flatten same operators
-                                if (binOp.op === '.') {
-                                    if (rightValue.content.type === '.') {
-                                        expr = { type: binOp.op, operator: [expr.operator].concat(rightValue.content.operator) };
-                                    }
-                                }
-                            } else {
-                                ctx.startColumn -= (saveLine.length - ctx.line.length); 
-                                ctx.line = saveLine;
-                            }
-                        } else {
-                            ctx.startColumn -= (saveLine.length - ctx.line.length); 
-                            ctx.line = saveLine;
-                        }
-                    }
+                    expr = parseBinaryOperators(expr);
                 }
             }
         }
@@ -454,36 +459,36 @@ var parseXbasic = function (source) {
             expr.content = expr.content.identifier;
             return true;
         } else if (expr.content.type === '.') {
-            var i , j;
+            var i, j;
             var methodPtr = null;
             var replaceItem = [];
             for (i = 0; i < expr.content.operator.length; ++i) {
-                if ( expr.content.operator[i].identifier ) {
+                if (expr.content.operator[i].identifier) {
                     replaceItem.push(expr.content.operator[i].identifier);
-                } else if( expr.content.operator[i].indexer) {
+                } else if (expr.content.operator[i].indexer) {
                     replaceItem.push(expr.content.operator[i].arrayref);
                     replaceItem.push(expr.content.operator[i].indexer);
-                 } else if( expr.content.operator[i].type === '.' ) {
-                    var  childOp = { content : expr.content.operator[i] };
-                    if( simplifyVariableReference(childOp)) {
-                         if( childOp.isMethod ) {
-                             return false;
-                         } else {
-                             for (j = 0; j < childOp.content.length; ++j) {
-                                 replaceItem.push( childOp.content[j] )
-                             }
-                         }
+                } else if (expr.content.operator[i].type === '.') {
+                    var childOp = { content: expr.content.operator[i] };
+                    if (simplifyVariableReference(childOp)) {
+                        if (childOp.isMethod) {
+                            return false;
+                        } else {
+                            for (j = 0; j < childOp.content.length; ++j) {
+                                replaceItem.push(childOp.content[j])
+                            }
+                        }
                     }
-                } else  if (i === (expr.content.operator.length - 1) && expr.content.operator[i].function) {
+                } else if (i === (expr.content.operator.length - 1) && expr.content.operator[i].function) {
                     methodPtr = expr.content.operator[i];
-                    replaceItem.push( methodPtr.function );
+                    replaceItem.push(methodPtr.function);
                 } else {
                     return false;
                 }
             }
             if (methodPtr) {
                 expr.isMethod = true;
-                expr.content = { method:replaceItem, parameters: methodPtr.parameters };
+                expr.content = { method: replaceItem, parameters: methodPtr.parameters };
             } else {
                 expr.content = replaceItem;
             }
@@ -567,7 +572,7 @@ var parseXbasic = function (source) {
         return expr;
     };
     //----------- Parse an xbasic command
-    var parseArg = function(ctx,typeHash) {
+    var parseArg = function (ctx, typeHash) {
         ctx.terminateExpr = ["as"];
         var expr = foldExpression(parseExpr(ctx, "var"));
         var typeName = null;
@@ -576,13 +581,13 @@ var parseXbasic = function (source) {
         }
         skipWhitespace(ctx);
         if (ctx.line.substring(0, 2).toLowerCase() !== 'as') {
-            if( typeHash ==="arg" ) {
-                if ( ctx.line.charCodeAt(0) !== 61) {
-                    return false; 
+            if (typeHash === "arg") {
+                if (ctx.line.charCodeAt(0) !== 61) {
+                    return false;
                 }
                 typeName = "*";
             } else {
-                return false; 
+                return false;
             }
         } else {
             ctx.line = ctx.line.substr(2);
@@ -601,7 +606,7 @@ var parseXbasic = function (source) {
         ctx.obj[typeHash] = typeName;
         skipWhitespace(ctx);
         var chrCode = ctx.line.charCodeAt(0);
-        if ( chrCode === 61) {
+        if (chrCode === 61) {
             ctx.line = ctx.line.substr(1);
             ctx.startColumn += 1;
             skipWhitespace(ctx);
@@ -639,7 +644,7 @@ var parseXbasic = function (source) {
                     }
                     ctx.obj.symbol = expr.content.identifier || expr.content;
                     //console.log("Expr: " + JSON.stringify(expr.content));
-                    goodTo = i;                    
+                    goodTo = i;
                 } else if (ctx.line.substring(0, token.length).toLowerCase() === token) {
                     if (isAlphaNumeric(token.charCodeAt(token.length - 1))) {
                         if (token.length < ctx.line.length) {
@@ -681,11 +686,11 @@ var parseXbasic = function (source) {
                     //console.log("Expr: " + JSON.stringify(expr.content));
                     goodTo = i;
                 } else if (subexpr === "$arg") {
-                    if( ctx.command.name === "arg" ) {
-                        if( !parseArg(ctx,"arg") ) {
+                    if (ctx.command.name === "arg") {
+                        if (!parseArg(ctx, "arg")) {
                             break;
                         }
-                    } else if( !parseArg(ctx,"function") ) {
+                    } else if (!parseArg(ctx, "function")) {
                         break;
                     }
                     goodTo = i;
@@ -697,33 +702,33 @@ var parseXbasic = function (source) {
                     goodTo = i;
                 } else if (subexpr === "$many") {
                     var subexpr = token[0];
-                    var subCommand = { command: { name : "arg", template : token[1] } , obj: { type: null }, startAt: 0, line: ctx.line, lineNumber: ctx.lineNumber, startColumn: ctx.startColumn , isSubCommand : true };
+                    var subCommand = { command: { name: "arg", template: token[1] }, obj: { type: null }, startAt: 0, line: ctx.line, lineNumber: ctx.lineNumber, startColumn: ctx.startColumn, isSubCommand: true };
                     var collect = [];
-                    while( parseXbasicCommand(subCommand) ) {
+                    while (parseXbasicCommand(subCommand)) {
                         collect.push(subCommand.obj);
                         ctx.line = subCommand.line;
                         ctx.lineNumber = subCommand.lineNumber;
                         ctx.startColumn = subCommand.startColumn;
                         skipWhitespace(ctx);
-                        if( token[2] !== ctx.line.substring(0,token[2].length).toLowerCase() ) {
+                        if (token[2] !== ctx.line.substring(0, token[2].length).toLowerCase()) {
                             break;
                         }
-                        ctx.line = ctx.line.substr( token[2].length );
-                        ctx.startColumn +=  token[2].length;
+                        ctx.line = ctx.line.substr(token[2].length);
+                        ctx.startColumn += token[2].length;
                         skipWhitespace(ctx);
-                        subCommand = { command: { name : "arg", template : token[1] } , obj: { type: null }, startAt: 0, line: ctx.line, lineNumber: ctx.lineNumber, startColumn: ctx.startColumn , isSubCommand : true };
-                    }   
+                        subCommand = { command: { name: "arg", template: token[1] }, obj: { type: null }, startAt: 0, line: ctx.line, lineNumber: ctx.lineNumber, startColumn: ctx.startColumn, isSubCommand: true };
+                    }
                     ctx.obj.arguments = [];
-                    for( var j = 0 ; j < collect.length ; ++j ) {
+                    for (var j = 0; j < collect.length; ++j) {
                         var collectElem = collect[j];
-                        var collectItem = { name : collectElem.variable , type : collectElem.arg };
-                        ctx.obj.arguments.push( collectItem );
+                        var collectItem = { name: collectElem.variable, type: collectElem.arg };
+                        ctx.obj.arguments.push(collectItem);
                     }
                     goodTo = i;
-                } else if (subexpr === ctx.line.substring(0,subexpr.length).toLowerCase() ) {
+                } else if (subexpr === ctx.line.substring(0, subexpr.length).toLowerCase()) {
                     goodTo = i;
-                    ctx.line = ctx.line.substr( subexpr.length );
-                    ctx.startColumn +=  subexpr.length;
+                    ctx.line = ctx.line.substr(subexpr.length);
+                    ctx.startColumn += subexpr.length;
                     skipWhitespace(ctx);
                 } else {
                     // not matching
@@ -736,17 +741,17 @@ var parseXbasic = function (source) {
             if (ctx.obj.type === "expr") {
                 if (ctx.obj.expr.type === '=') {
                     ctx.obj.expr.type = ":=";
-                } else if ( ctx.obj.expr.identifier ) {
+                } else if (ctx.obj.expr.identifier) {
                     ctx.obj.expr.identifier = ctx.obj.expr.identifier.trim();
-                    if( ctx.obj.expr.identifier.substring(ctx.obj.expr.identifier.length-1) === ":" ) {
+                    if (ctx.obj.expr.identifier.substring(ctx.obj.expr.identifier.length - 1) === ":") {
                         ctx.obj.type = "symbol";
-                        ctx.obj.name = ctx.obj.expr.identifier.substring(0,ctx.obj.expr.identifier.length-1);
-                        delete  ctx.obj.expr;
+                        ctx.obj.name = ctx.obj.expr.identifier.substring(0, ctx.obj.expr.identifier.length - 1);
+                        delete ctx.obj.expr;
                     }
-                }               
+                }
             }
             ctx.obj.lineNumber = ctx.lineNumber;
-            if( !ctx.isSubCommand ) {
+            if (!ctx.isSubCommand) {
                 commands.push(ctx.obj);
             }
             return true;
@@ -756,10 +761,15 @@ var parseXbasic = function (source) {
     var parseXbasicCommands = function (line, lineNumber, startColumn) {
         var i;
         for (i = 0; i < xbasicCommands.length; ++i) {
-            var context = { command: xbasicCommands[i], obj: { type: null }, startAt: 0, line: line, lineNumber: lineNumber, startColumn: startColumn }; 
+            var context = { command: xbasicCommands[i], obj: { type: null }, startAt: 0, line: line, lineNumber: lineNumber, startColumn: startColumn };
             if (parseXbasicCommand(context)) {
-                if( context.line.length > 0 ) {
-                    errors.push({ error : "Extra characters after expression '"+context.line.split("\n")[0]+"'" , line : context.lineNumber , column :  context.startColumn  } );
+                context.line = context.line.trim();
+                if (context.line.length > 0) {
+                    if (context.line.substring(0, 1) === "'") {
+                        commands.push({ "type": "comment", "text": context.line.substr(1), "line": context.lineNumber })
+                    } else {
+                        errors.push({ error: "Extra characters after expression '" + context.line.split("\n")[0] + "'", line: context.lineNumber, column: context.startColumn });
+                    }
                 }
                 return true;
             }
@@ -767,7 +777,7 @@ var parseXbasic = function (source) {
         return false;
     };
     var parseXbasicLine = function (line, lineNumber, startColumn) {
-        if( line.trim() === "")
+        if (line.trim() === "")
             return true;
         var i;
         startColumn += (line.length + 1) - ((line + "|").trim().length);
@@ -780,31 +790,31 @@ var parseXbasic = function (source) {
         return true;
     };
     source = source.split("\n");
-    var j , findEnd;
+    var j, findEnd;
     for (i = 0; i < source.length; ++i) {
-        if( source[i].indexOf("'") < 0 ) {
+        if (source[i].indexOf("'") < 0) {
             var stringTag = source[i].indexOf("<<");
-            if( stringTag >= 0 ) {
-                var tagStart = source[i].substring(stringTag+2).trim();
+            if (stringTag >= 0) {
+                var tagStart = source[i].substring(stringTag + 2).trim();
                 findEnd = -1;
-                for( j = i+1 ; j <  source.length ; ++j ) {
-                    if( source[j].indexOf(tagStart) >= 0 ) {
+                for (j = i + 1; j < source.length; ++j) {
+                    if (source[j].indexOf(tagStart) >= 0) {
                         findEnd = j;
-                        if( source[j].indexOf("'") < 0 ) {
+                        if (source[j].indexOf("'") < 0) {
                             stringTag = source[j].indexOf("<<");
-                            if( stringTag >= 0 ) {
-                                tagStart = source[j].substring(stringTag+2).trim();
+                            if (stringTag >= 0) {
+                                tagStart = source[j].substring(stringTag + 2).trim();
                             } else {
-                                break; 
+                                break;
                             }
                         } else {
                             break;
                         }
                     }
                 }
-                if( findEnd > 0 ) {
-                    for( j = i+1 ; j <=  findEnd ; ++j ) {
-                        source[i] += "\n"+source[j];
+                if (findEnd > 0) {
+                    for (j = i + 1; j <= findEnd; ++j) {
+                        source[i] += "\n" + source[j];
                         source[j] = "";
                     }
                 }
@@ -812,11 +822,11 @@ var parseXbasic = function (source) {
         }
     }
     for (i = 0; i < source.length; ++i) {
-        if( !parseXbasicLine(source[i], i, 0) ) {
-            errors.push( { error : "syntax error line #"+(i+1) , line : i , col : 0 });
+        if (!parseXbasicLine(source[i], i, 0)) {
+            errors.push({ error: "syntax error line #" + (i + 1), line: i, col: 0 });
         }
     }
-    return { "error": errors , "commands": commands };
+    return { "error": errors, "commands": commands };
 }
 
 exports.parse = parseXbasic; 
