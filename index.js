@@ -172,6 +172,11 @@ var parseXbasic = function (source) {
             if (len < line.length) {
                 return len + 1;
             }
+        } else if (line.substring(0,2) === "<<" ) {
+            var tag = line.substring(2).split("\n")[0].trim();
+            var tagEnd = line.substring(2+tag.length).indexOf(tag);
+            tagEnd += 2+tag.length*2;
+            return tagEnd;
         }
         return 0;
     };
@@ -725,10 +730,38 @@ var parseXbasic = function (source) {
         return true;
     };
     source = source.split("\n");
-    var allGood = true;
+    var j , findEnd;
+    for (i = 0; i < source.length; ++i) {
+        if( source[i].indexOf("'") < 0 ) {
+            var stringTag = source[i].indexOf("<<");
+            if( stringTag >= 0 ) {
+                var tagStart = source[i].substring(stringTag+2).trim();
+                findEnd = -1;
+                for( j = i+1 ; j <  source.length ; ++j ) {
+                    if( source[i].indexOf(tagStart) >= 0 ) {
+                        findEnd = j;
+                        if( source[i].indexOf("'") >= 0 ) {
+                            stringTag = source[i].indexOf("<<");
+                            if( stringTag >= 0 ) {
+                                tagStart = source[i].substring(stringTag+2).trim();
+                            } else {
+                                break; 
+                            }
+                        }
+                    }
+                }
+                if( findEnd > 0 ) {
+                    for( j = i+1 ; j <=  findEnd ; ++j ) {
+                        source[i] += "\n"+source[j];
+                        source[j] = "";
+                    }
+                }
+            }
+        }
+    }
     for (i = 0; i < source.length; ++i) {
         if( !parseXbasicLine(source[i], i, 0) ) {
-            error.push( { error : "On line to " });
+            errors.push( { error : "On line to " });
         }
     }
     return { "error": errors , "commands": commands };
