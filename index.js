@@ -74,6 +74,7 @@ var xbasicCommands = [
     { "name": "dynamic_include", "template": ["dynamic", "include", ["$exp", "include"]] },
     { "name": "goto", "template": ["goto", "<sym>"] },
     { "name": "let", "template": ["let", ["$var", "variable"], "=", ["$exp", "expr"]] },
+    { "name": "next", "template": ["next",["$var","identifier"]] },
     { "name": "next", "template": ["next"] },
     { "name": "on_error_goto", "template": ["on", "error", "goto", "<sym>"] },
     { "name": "on_error_resume", "template": ["on", "error", "resume", "<sym>"] },
@@ -637,6 +638,7 @@ var parseXbasic = function (source) {
                     goodTo = i;
                     ctx.line = ctx.line.substr(token.length);
                     ctx.startColumn += token.length;
+                    skipWhitespace(ctx);
                     // Lets compare the rest....
                 } else {
                     break;
@@ -710,7 +712,9 @@ var parseXbasic = function (source) {
                     ctx.line = ctx.line.substr( subexpr.length );
                     ctx.startColumn +=  subexpr.length;
                     skipWhitespace(ctx);
-                // TBD handle Optionals...
+                } else {
+                    // not matching
+                    goodTo = i;
                 }
             }
         }
