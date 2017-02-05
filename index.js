@@ -738,15 +738,17 @@ var parseXbasic = function (source) {
                 var tagStart = source[i].substring(stringTag+2).trim();
                 findEnd = -1;
                 for( j = i+1 ; j <  source.length ; ++j ) {
-                    if( source[i].indexOf(tagStart) >= 0 ) {
+                    if( source[j].indexOf(tagStart) >= 0 ) {
                         findEnd = j;
-                        if( source[i].indexOf("'") >= 0 ) {
-                            stringTag = source[i].indexOf("<<");
+                        if( source[j].indexOf("'") < 0 ) {
+                            stringTag = source[j].indexOf("<<");
                             if( stringTag >= 0 ) {
                                 tagStart = source[i].substring(stringTag+2).trim();
                             } else {
                                 break; 
                             }
+                        } else {
+                            break;
                         }
                     }
                 }
