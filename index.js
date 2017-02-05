@@ -193,7 +193,12 @@ var parseXbasic = function (source) {
     var identifierLength = function (line) {
         var code = line.charCodeAt(0);
         var len = 0;
-        while (code === 42) {
+        if (code === 42) {
+            code =  line.charCodeAt(1);
+            if ((code > 64 && code < 91) || (code > 96 && code < 123) || code === 95) {
+                ++len;
+            }
+        } else if (code === 46) {
             code =  line.charCodeAt(1);
             if ((code > 64 && code < 91) || (code > 96 && code < 123) || code === 95) {
                 ++len;
@@ -257,6 +262,13 @@ var parseXbasic = function (source) {
             ctx.startColumn += length;
             return { expr: { number: txt } };
         }
+        length = boolLength(ctx.line);
+        if (length > 0) {
+            var txt = ctx.line.substr(0, length);
+            ctx.line = ctx.line.substr(length);
+            ctx.startColumn += length;
+            return { expr: { bool: txt } };
+        }        
         length = identifierLength(ctx.line);
         if (length > 0) {
             var txt = ctx.line.substr(0, length);
@@ -270,13 +282,6 @@ var parseXbasic = function (source) {
             ctx.line = ctx.line.substr(length);
             ctx.startColumn += length;
             return { expr: { string: txt } };
-        }
-        length = boolLength(ctx.line);
-        if (length > 0) {
-            var txt = ctx.line.substr(0, length);
-            ctx.line = ctx.line.substr(length);
-            ctx.startColumn += length;
-            return { expr: { bool: txt } };
         }
         return null;
     };
