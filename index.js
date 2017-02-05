@@ -633,6 +633,13 @@ var parseXbasic = function (source) {
             skipWhitespace(ctx);
             if (typeof token === 'string') {
                 if (token === "<sym>") {
+                    var expr = foldExpression(parseExpr(ctx, "var"));
+                    if (!expr.handled) {
+                        break;
+                    }
+                    ctx.obj.symbol = expr.content.identifier || expr.content;
+                    //console.log("Expr: " + JSON.stringify(expr.content));
+                    goodTo = i;                    
                 } else if (ctx.line.substring(0, token.length).toLowerCase() === token) {
                     if (isAlphaNumeric(token.charCodeAt(token.length - 1))) {
                         if (token.length < ctx.line.length) {
@@ -729,6 +736,13 @@ var parseXbasic = function (source) {
             if (ctx.obj.type === "expr") {
                 if (ctx.obj.expr.type === '=') {
                     ctx.obj.expr.type = ":=";
+                } else if ( ctx.obj.expr.identifier ) {
+                    ctx.obj.expr.identifier = ctx.obj.expr.identifier.trim();
+                    if( ctx.obj.expr.identifier.substring(ctx.obj.expr.identifier.length-1) === ":" ) {
+                        ctx.obj.type = "symbol";
+                        ctx.obj.name = ctx.obj.expr.identifier.substring(0,ctx.obj.expr.identifier.length-1);
+                        delete  ctx.obj.expr;
+                    }
                 }               
             }
             ctx.obj.lineNumber = ctx.lineNumber;
