@@ -537,21 +537,30 @@ var parseXbasic = function (source) {
     var parseArg = function(ctx,typeHash) {
         ctx.terminateExpr = ["as"];
         var expr = foldExpression(parseExpr(ctx, "var"));
+        var typeName = null;
         if (!expr.handled) {
             return false;
         }
         skipWhitespace(ctx);
         if (ctx.line.substring(0, 2).toLowerCase() !== 'as') {
-            return false;
+            if( typeHash ==="arg" ) {
+                if ( ctx.line.charCodeAt(0) !== 61) {
+                    return false; 
+                }
+                typeName = "*";
+            } else {
+                return false; 
+            }
+        } else {
+            ctx.line = ctx.line.substr(2);
+            ctx.startColumn += 2;
+            skipWhitespace(ctx);
+            var typeLength = identifierLength(ctx.line);
+            if (typeLength < 1) {
+                return false;
+            }
+            typeName = ctx.line.substr(0, typeLength);
         }
-        ctx.line = ctx.line.substr(2);
-        ctx.startColumn += 2;
-        skipWhitespace(ctx);
-        var typeLength = identifierLength(ctx.line);
-        if (typeLength < 1) {
-            return false;
-        }
-        var typeName = ctx.line.substr(0, typeLength);
         ctx.line = ctx.line.substr(typeLength);
         ctx.startColumn += typeLength;
         simplifyVariableReference(expr);
@@ -631,7 +640,11 @@ var parseXbasic = function (source) {
                     //console.log("Expr: " + JSON.stringify(expr.content));
                     goodTo = i;
                 } else if (subexpr === "$arg") {
-                    if( !parseArg(ctx,"returns") ) {
+                    if( ctx.command.name === "arg" ) {
+                        if( !parseArg(ctx,"arg") ) {
+                            break;
+                        }
+                    } else if( !parseArg(ctx,"function") ) {
                         break;
                     }
                     goodTo = i;
@@ -662,7 +675,7 @@ var parseXbasic = function (source) {
                     ctx.obj.arguments = [];
                     for( var j = 0 ; j < collect.length ; ++j ) {
                         var collectElem = collect[j];
-                        var collectItem = { name : collectElem.variable , type : collectElem.returns };
+                        var collectItem = { name : collectElem.variable , type : collectElem.arg };
                         ctx.obj.arguments.push( collectItem );
                     }
                     goodTo = i;
