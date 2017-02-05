@@ -155,6 +155,14 @@ var parseXbasic = function (source) {
         }
         return 0;
     };
+    //--------- Return logical length
+    var boolLength = function (line) {
+        var testBool = line.substr(0,3).toLowerCase();
+        if( testBool === ".t." || testBool === ".f." ) {
+            return 3;
+        }
+        return 0;
+    };
     //--------- Return string length
     var stringLength = function (line) {
         if (line.charCodeAt(0) === 34) {
@@ -184,6 +192,12 @@ var parseXbasic = function (source) {
     var identifierLength = function (line) {
         var code = line.charCodeAt(0);
         var len = 0;
+        while (code === 42) {
+            code =  line.charCodeAt(1);
+            if ((code > 64 && code < 91) || (code > 96 && code < 123) || code === 95) {
+                ++len;
+            }
+        }
         while (code === 58) {
             ++len;
             code = line.charCodeAt(len);
@@ -255,6 +269,13 @@ var parseXbasic = function (source) {
             ctx.line = ctx.line.substr(length);
             ctx.startColumn += length;
             return { expr: { string: txt } };
+        }
+        length = boolLength(ctx.line);
+        if (length > 0) {
+            var txt = ctx.line.substr(0, length);
+            ctx.line = ctx.line.substr(length);
+            ctx.startColumn += length;
+            return { expr: { bool: txt } };
         }
         return null;
     };
@@ -684,9 +705,12 @@ var parseXbasic = function (source) {
                         ctx.obj.arguments.push( collectItem );
                     }
                     goodTo = i;
-                } else {
-                    // TBD handle Optionals...
+                } else if (subexpr === ctx.line.substring(0,subexpr.length).toLowerCase() ) {
                     goodTo = i;
+                    ctx.line = ctx.line.substr( subexpr.length );
+                    ctx.startColumn +=  subexpr.length;
+                    skipWhitespace(ctx);
+                // TBD handle Optionals...
                 }
             }
         }
@@ -719,6 +743,8 @@ var parseXbasic = function (source) {
         return false;
     };
     var parseXbasicLine = function (line, lineNumber, startColumn) {
+        if( line.trim() === "")
+            return true;
         var i;
         startColumn += (line.length + 1) - ((line + "|").trim().length);
         line = line.trim();
@@ -763,7 +789,7 @@ var parseXbasic = function (source) {
     }
     for (i = 0; i < source.length; ++i) {
         if( !parseXbasicLine(source[i], i, 0) ) {
-            errors.push( { error : "On line to " });
+            errors.push( { error : "syntax error line #"+(i+1) , line : i , col : 0 });
         }
     }
     return { "error": errors , "commands": commands };
