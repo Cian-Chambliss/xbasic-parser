@@ -326,6 +326,7 @@ var parseXbasic = function (source) {
                 if (ctx.line.charCodeAt(0) === 41) {
                     ctx.line = ctx.line.substr(1);
                     ctx.startColumn += 1;
+                    skipWhitespace(ctx);
                     handled = true;
                     if (parameters) {
                         expr = parameters;
