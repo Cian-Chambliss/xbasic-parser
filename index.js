@@ -415,18 +415,18 @@ var parseXbasic = function (source) {
                         expr = inner.content;
                     }
                 }
-            } else if (kind !== "ident" && ctx.line.charCodeAt(0) === 93) {
+            } else if ( ctx.line.charCodeAt(0) === 93) { // && kind !== "ident" 
                 ctx.line = ctx.line.substr(1);
                 ctx.startColumn += 1;
+                expr = { "operator": "[]" };
                 handled = true;
                 skipWhitespace(ctx);
-                expr = { "operator": "[]" };
-            } else if (ctx.line.length > 2 && ctx.line.charCodeAt(0) === 46 && ctx.line.charCodeAt(1) === 46 && ctx.line.charCodeAt(1) === 93) {
+            } else if (ctx.line.length > 2 && ctx.line.charCodeAt(0) === 46 && ctx.line.charCodeAt(1) === 46 && ctx.line.charCodeAt(2) === 93) {
                 ctx.line = ctx.line.substr(3);
                 ctx.startColumn += 3;
+                expr = { "operator": "[..]" };
                 handled = true;
                 skipWhitespace(ctx);
-                expr = { "operator": "[..]" };
             }
         } else {
             var uo = unaryOperator(ctx);
@@ -441,6 +441,7 @@ var parseXbasic = function (source) {
                         var saveLine = ctx.line;
                         var inner = parseExpr(ctx, "ident");
                         if (inner.handled) {
+                            skipWhitespace(ctx);
                             expr = { function: oe.expr.identifier, parameters: inner.content };
                         } else {
                             ctx.startColumn -= (saveLine.length - ctx.line.length);
@@ -449,6 +450,7 @@ var parseXbasic = function (source) {
                     } else if (ctx.line.charCodeAt(0) === 91) {
                         var inner = parseExpr(ctx, "ident");
                         if (inner.handled) {
+                            skipWhitespace(ctx);
                             expr = { arrayref: oe.expr.identifier, indexer: inner.content };
                         }
                     }
