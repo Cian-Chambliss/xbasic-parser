@@ -740,7 +740,7 @@ var parseXbasic = function (source) {
             var context = { command: xbasicCommands[i], obj: { type: null }, startAt: 0, line: line, lineNumber: lineNumber, startColumn: startColumn }; 
             if (parseXbasicCommand(context)) {
                 if( context.line.length > 0 ) {
-                    errors.push({ error : "Extra characters after expression '"+context.line+"'" , line : context.lineNumber , column :  context.startColumn  } );
+                    errors.push({ error : "Extra characters after expression '"+context.line.split("\n")[0]+"'" , line : context.lineNumber , column :  context.startColumn  } );
                 }
                 return true;
             }
@@ -774,7 +774,7 @@ var parseXbasic = function (source) {
                         if( source[j].indexOf("'") < 0 ) {
                             stringTag = source[j].indexOf("<<");
                             if( stringTag >= 0 ) {
-                                tagStart = source[i].substring(stringTag+2).trim();
+                                tagStart = source[j].substring(stringTag+2).trim();
                             } else {
                                 break; 
                             }
